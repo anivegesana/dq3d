@@ -64,7 +64,9 @@ public:
     void normalize(void);
     DualQuaternion<T> normalized(void) const;
     Eigen::Matrix<T, 3, 1> transformPoint(const Eigen::Matrix<T, 3, 1>& point) const;
+    Eigen::Matrix<T, Eigen::Dynamic, 3> transformPoints(const Eigen::Matrix<T, Eigen::Dynamic, 3>& point) const;
     Eigen::Matrix<T, 3, 1> transformVector(const Eigen::Matrix<T, 3, 1>& vector) const;
+    Eigen::Matrix<T, Eigen::Dynamic, 3> transformVectors(const Eigen::Matrix<T, Eigen::Dynamic, 3>& vector) const;
     Eigen::Quaternion<T> real(void) const;
     Eigen::Quaternion<T> rotation(void) const;
     Eigen::Matrix<T, 3, 1> translation(void) const;
@@ -272,6 +274,25 @@ DualQuaternion<T>::transformPoint(const Eigen::Matrix<T, 3, 1>& point) const
 }
 
 template<typename T>
+Eigen::Matrix<T, Eigen::Dynamic, 3>
+DualQuaternion<T>::transformPoints(const Eigen::Matrix<T, Eigen::Dynamic, 3>& point) const
+{
+    Eigen::Matrix<T, Eigen::Dynamic, 3> ps(point.rows(), 3);
+
+    int num_rows = point.rows();
+    for (int i = 0; i < num_rows; i++) {
+        DualQuaternion<T> dq = (*this)
+                               * DualQuaternion<T>(Eigen::Quaternion<T>(1, 0, 0, 0),
+                                                   Eigen::Quaternion<T>(0, point(i,0), point(i,1), point(i,2)))
+                               * conjugate();
+
+        ps.row(i).transpose() = Eigen::Matrix<T, 3, 1>(dq.m_dual.x(), dq.m_dual.y(), dq.m_dual.z()) + 2.0 * (m_real.w() * m_dual.vec() - m_dual.w() * m_real.vec() + m_real.vec().cross(m_dual.vec()));
+    }
+
+    return ps;
+}
+
+template<typename T>
 Eigen::Matrix<T, 3, 1>
 DualQuaternion<T>::transformVector(const Eigen::Matrix<T, 3, 1>& vector) const
 {
@@ -281,6 +302,25 @@ DualQuaternion<T>::transformVector(const Eigen::Matrix<T, 3, 1>& vector) const
                            * conjugate();
 
     return Eigen::Matrix<T, 3, 1>(dq.m_dual.x(), dq.m_dual.y(), dq.m_dual.z());
+}
+
+template<typename T>
+Eigen::Matrix<T, Eigen::Dynamic, 3>
+DualQuaternion<T>::transformVectors(const Eigen::Matrix<T, Eigen::Dynamic, 3>& vector) const
+{
+    Eigen::Matrix<T, Eigen::Dynamic, 3> vs(vector.rows(), 3);
+
+    int num_rows = vector.rows();
+    for (int i = 0; i < num_rows; i++) {
+        DualQuaternion<T> dq = (*this)
+                               * DualQuaternion<T>(Eigen::Quaternion<T>(1, 0, 0, 0),
+                                                   Eigen::Quaternion<T>(0, vector(i,0), vector(i,1), vector(i,2)))
+                               * conjugate();
+
+        vs.row(i) = Eigen::Matrix<T, 1, 3>(dq.m_dual.x(), dq.m_dual.y(), dq.m_dual.z());
+    }
+
+    return vs;
 }
 
 template<typename T>

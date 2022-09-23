@@ -13,6 +13,7 @@ namespace py = pybind11;
 using namespace Eigen;
 typedef double Float;
 
+#if 0
 struct _scipy_Rotation {
     py::handle val; // py::object
 };
@@ -44,6 +45,7 @@ namespace pybind11 { namespace detail {
         }
     };
 }}
+#endif
 
 PYBIND11_MODULE(_eigen_dq, m) {
     py::class_<Quaternion<Float> >(m, "quat")
@@ -70,6 +72,7 @@ PYBIND11_MODULE(_eigen_dq, m) {
       .def("dot", &Quaternion<Float>::dot<Quaternion<Float>>)
       .def("slerp", &Quaternion<Float>::slerp<Quaternion<Float>>)
       .def("to_rotation_matrix", &Quaternion<Float>::toRotationMatrix)
+      .def("to_euler_angles", [](Quaternion<Float> &self){return self.toRotationMatrix().eulerAngles(0, 1, 2);})
       .def("conjugate", &Quaternion<Float>::conjugate)
       .def("inverse", &Quaternion<Float>::inverse)
       .def(py::self * py::self)
@@ -85,7 +88,15 @@ PYBIND11_MODULE(_eigen_dq, m) {
       .def(py::init<Quaternion<Float>&, Quaternion<Float>&>(),
            py::arg("real") = Quaternion<Float>(1, 0, 0, 0), py::arg("dual") = Quaternion<Float>(0, 0, 0, 0))
       .def(py::init<Quaternion<Float>&, Matrix<Float, 3, 1>&>(),
-           py::arg("real") = Quaternion<Float>(1, 0, 0, 0), py::arg("dual") = Matrix<Float, 3, 1>::Zero())
+           py::arg("real") = Quaternion<Float>(1, 0, 0, 0), py::arg("translation") = Matrix<Float, 3, 1>::Zero())
+      .def(py::init([](Matrix<Float, 4, 1>& real, Matrix<Float, 3, 1>& translation) {
+               Quaternion<Float> q(real);
+               return DualQuaternion<Float>(q, translation);
+           }), py::arg("real"), py::arg("translation") = Matrix<Float, 3, 1>::Zero())
+      .def(py::init([](Matrix<Float, 1, 4>& real, Matrix<Float, 3, 1>& translation) {
+               Quaternion<Float> q(real.transpose());
+               return DualQuaternion<Float>(q, translation);
+           }), py::arg("real"), py::arg("translation") = Matrix<Float, 3, 1>::Zero())
       /*.def(py::init([](_scipy_Rotation& rotation, Matrix<Float, 3, 1>& translation) {
              Matrix<Float, 4, 1> m = rotation.val.attr("as_quat")().cast<Matrix<Float, 4, 1> >();
              Quaternion<Float> q(m);
@@ -110,7 +121,9 @@ PYBIND11_MODULE(_eigen_dq, m) {
       .def("normalize", &DualQuaternion<Float>::normalize)
       .def("normalized", &DualQuaternion<Float>::normalized)
       .def("transform_point", &DualQuaternion<Float>::transformPoint)
+      .def("transform_point", &DualQuaternion<Float>::transformPoints)
       .def("transform_vector", &DualQuaternion<Float>::transformVector)
+      .def("transform_vector", &DualQuaternion<Float>::transformVectors)
       .def("inverse", &DualQuaternion<Float>::inverse)
       .def("exp", &DualQuaternion<Float>::exp)
       .def("log", &DualQuaternion<Float>::log)
