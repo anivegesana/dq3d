@@ -7,13 +7,18 @@ import setuptools
 
 __version__ = '0.3.6'
 
+if 'CONDA_PREFIX' in os.environ:
+    conda_dirs = [os.environ['CONDA_PREFIX'] + "/include/eigen3"]
+else:
+    conda_dirs = []
+
 def find_eigen(hint=[]):
     """
     Find the location of the Eigen 3 include directory. This will return
     ``None`` on failure.
     """
     # List the standard locations including a user supplied hint.
-    search_dirs = hint + [
+    search_dirs = hint + conda_dirs + [
         "/usr/local/include/eigen3",
         "/usr/local/homebrew/include/eigen3",
         "/opt/local/var/macports/software/eigen3",

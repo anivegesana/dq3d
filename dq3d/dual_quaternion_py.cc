@@ -13,14 +13,47 @@ namespace py = pybind11;
 using namespace Eigen;
 typedef double Float;
 
+struct _scipy_Rotation {
+    py::handle val; // py::object
+};
+
+namespace pybind11 { namespace detail {
+    template <> struct type_caster<_scipy_Rotation> {
+    public:
+        PYBIND11_TYPE_CASTER(_scipy_Rotation, const_name("scipy.spatial.transform.Rotation"));
+
+        bool load(handle src, bool) {
+            /* Extract PyObject from handle */
+            PyObject *source = src.ptr();
+            /*handle type = src.attr("__class__");
+            std::string prefix = "scipy."
+            if (type.attr("__name__").cast<std::string>() != "Rotation" && type.attr("__module__").cast<std::string>().substr(0, prefix.size()) == prefix) {
+            	throw py::type_error("Excepted a scipy.spatial.transform.Rotation");
+            }*/
+            /* Now try to convert into a C++ int */
+            //if (strcmp(source->ob_type->tp_name, "Rotation") != 0)
+                // TODO: assert type
+            value.val = source;
+            Py_DECREF(source);
+            /* Ensure return code was OK (to avoid out-of-range errors etc) */
+            return !PyErr_Occurred();
+        }
+
+        static handle cast(_scipy_Rotation src, return_value_policy /* policy */, handle /* parent */) {
+            return src.val;
+        }
+    };
+}}
+
 PYBIND11_MODULE(_eigen_dq, m) {
     py::class_<Quaternion<Float> >(m, "quat")
-      .def(py::init<>())
-      .def(py::init<Float, Float, Float, Float>())
-      .def(py::init<Matrix<Float, 4, 1>&>())
-      .def(py::init<Matrix<Float, 3, 3>&>())
+      //.def(py::init<>())
+      .def(py::init<Float, Float, Float, Float>(), py::arg("w") = 0, py::arg("x") = 0, py::arg("y") = 0, py::arg("z") = 0)
+      .def(py::init<Matrix<Float, 4, 1>&>(), py::arg("data"))
+      .def(py::init<Matrix<Float, 3, 3>&>(), py::arg("rot_matrix"))
       .def(py::init([](Float ang, Matrix<Float, 3, 1>& axis) {
-          return std::unique_ptr<Quaternion<Float>>(new Quaternion<Float>(AngleAxis<Float>(ang, axis)));}))
+          return std::unique_ptr<Quaternion<Float>>(new Quaternion<Float>(AngleAxis<Float>(ang, axis)));}),
+          py::arg("ang"), py::arg("axis"))
       .def_property("data", &Quaternion<Float>::getData, &Quaternion<Float>::setData)
       .def_property("w", &Quaternion<Float>::getW, &Quaternion<Float>::setW)
       .def_property("x", &Quaternion<Float>::getX, &Quaternion<Float>::setX)
@@ -48,11 +81,18 @@ PYBIND11_MODULE(_eigen_dq, m) {
         });
 
     py::class_<DualQuaternion<Float> >(m, "dualquat")
-      .def(py::init<>())
-      .def(py::init<Quaternion<Float>&, Quaternion<Float>&>())
-      .def(py::init<Quaternion<Float>&, Matrix<Float, 3, 1>&>())
-      .def(py::init([](Quaternion<Float>& q) {
-           return std::unique_ptr<DualQuaternion<Float>>(new DualQuaternion<Float>(q, Matrix<Float, 3, 1>::Zero()));}))
+      //.def(py::init<>())
+      .def(py::init<Quaternion<Float>&, Quaternion<Float>&>(),
+           py::arg("real") = Quaternion<Float>(1, 0, 0, 0), py::arg("dual") = Quaternion<Float>(0, 0, 0, 0))
+      .def(py::init<Quaternion<Float>&, Matrix<Float, 3, 1>&>(),
+           py::arg("real") = Quaternion<Float>(1, 0, 0, 0), py::arg("dual") = Matrix<Float, 3, 1>::Zero())
+      /*.def(py::init([](_scipy_Rotation& rotation, Matrix<Float, 3, 1>& translation) {
+             Matrix<Float, 4, 1> m = rotation.val.attr("as_quat")().cast<Matrix<Float, 4, 1> >();
+             Quaternion<Float> q(m);
+             return DualQuaternion<Float>(q, translation);
+           }),py::arg("rotation"), py::arg("dual") = Matrix<Float, 3, 1>::Zero())
+      /*.def(py::init([](Quaternion<Float>& q) {
+           return std::unique_ptr<DualQuaternion<Float>>(new DualQuaternion<Float>(q, Matrix<Float, 3, 1>::Zero()));}))*/
       .def_readwrite("real", &DualQuaternion<Float>::m_real)
       .def_readwrite("dual", &DualQuaternion<Float>::m_dual)
       .def_static("zeros", &DualQuaternion<Float>::zeros)
